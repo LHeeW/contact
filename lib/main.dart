@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:contacts_service/contacts_service.dart';
 
 void main() {
   runApp(const MaterialApp(
@@ -15,11 +17,24 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
 
-  List<String> name = [];
+  var name = [];
   void addList(p){
     setState(() {
       name.add(p);
     });
+  }
+
+  void getPermission() async{
+    var status = await Permission.contacts.status;
+    if(status.isGranted){
+      var contacts = await ContactsService.getContacts(withThumbnails: false);
+      setState((){
+        name = contacts;
+      });
+    }else if(status.isDenied){
+      print('거절됨');
+      Permission.contacts.request();
+    }
   }
 
   @override
@@ -33,11 +48,15 @@ class _MyAppState extends State<MyApp> {
           });
         },
       ),
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: [
+          IconButton(onPressed: ()=>getPermission(), icon: const Icon(Icons.contacts)),
+        ],
+      ),
       body: ListView.builder(itemCount: name.length,itemBuilder: (context,i){
         return ListTile(
           leading: const Icon(Icons.people),
-          title: Text(name[i]),
+          title: Text(name[i].givenName ?? '이름없음'),
         );
       }),
     );
@@ -63,7 +82,10 @@ class DialogUI extends StatelessWidget {
         TextButton(onPressed: ()=>Navigator.pop(context), child: const Text('Cancel')),
         TextButton(onPressed: (){
           if(textEditingController.text != ''){
-            addList(textEditingController.text);
+            var newContact = Contact();
+            newContact.givenName = textEditingController.text;
+            ContactsService.addContact(newContact);
+            addList(newContact);
             Navigator.pop(context);
           }
         }, child: const Text('Ok')),
